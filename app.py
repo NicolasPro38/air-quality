@@ -93,7 +93,7 @@ def auto_refresh():
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("index.html", prefix="/air-quality")
 
 @app.route("/api/stations")
 def api_stations():

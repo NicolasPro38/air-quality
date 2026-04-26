@@ -239,7 +239,7 @@
     async function loadLayers() {
         try {
             // --- Couche pays GeoJSON ---
-            const countriesResp = await fetch('/api/countries');
+            const countriesResp = await fetch('{{ prefix }}/api/countries');
             const countriesData = await countriesResp.json();
 
             countriesLayer = new ol.layer.Vector({
@@ -268,7 +268,7 @@
             map.addLayer(countriesLayer);
 
             // --- Couche stations ---
-            const stationsResp = await fetch('/api/stations');
+            const stationsResp = await fetch('{{ prefix }}/api/stations');
             const stationsData = await stationsResp.json();
 
             const features = stationsData.stations.map(s => {
