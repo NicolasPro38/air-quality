@@ -112,6 +112,16 @@ def api_countries():
     with open(path) as f:
         return jsonify(json.load(f))
 
+_cache_initialized = False
+
+@app.before_request
+def init_cache():
+    global _cache_initialized
+    if not _cache_initialized:
+        _cache_initialized = True
+        if not os.path.exists(os.path.join(CACHE_DIR, "countries.geojson")):
+            threading.Thread(target=refresh_cache, daemon=True).start()
+
 if __name__ == "__main__":
     os.makedirs(CACHE_DIR, exist_ok=True)
     refresh_cache()
