@@ -1,45 +1,50 @@
+import matplotlib
+matplotlib.use('Agg')
+
 import os
 import json
 import time
 import threading
 import requests
-import numpy as np
-from spatial.interpolation import generate_idw_image
 from flask import Flask, jsonify, render_template, send_file
 from dotenv import load_dotenv
+from spatial.interpolation import generate_country_geojson
 
 app = Flask(__name__)
 load_dotenv()
 
 AQICN_TOKEN = os.getenv("AQICN_TOKEN")
 CACHE_DIR = os.path.join(os.path.dirname(__file__), "static", "cache")
-CACHE_DURATION = 3600  # 1 heure
+CACHE_DURATION = 3600
+
+TILES = [
+    (-90, -180, -30,   0),
+    (-90,    0, -30, 180),
+    (-30, -180,  20, -60),
+    (-30,  -60,  20,   0),
+    (-30,    0,  20,  60),
+    (-30,   60,  20, 120),
+    (-30,  120,  20, 180),
+    ( 20, -180,  50, -90),
+    ( 20,  -90,  50,   0),
+    ( 20,    0,  35,  30),
+    ( 20,   30,  35,  60),
+    ( 35,    0,  50,  30),
+    ( 35,   30,  50,  60),
+    ( 20,   60,  35,  90),
+    ( 20,   90,  35, 120),
+    ( 35,   60,  50,  90),
+    ( 35,   90,  50, 120),
+    ( 20,  120,  50, 180),
+    ( 50, -180,  90,   0),
+    ( 50,    0,  90,  90),
+    ( 50,   90,  90, 180),
+]
 
 def fetch_stations():
-    """Récupère les stations AQICN par tuiles pour couvrir le monde entier."""
-    tiles = [
-        # (lat_min, lon_min, lat_max, lon_max)
-        (-90, -180, -30,   0),
-        (-90,    0, -30, 180),
-        (-30, -180,  20,  -60),
-        (-30,  -60,  20,    0),
-        (-30,    0,  20,   60),
-        (-30,   60,  20,  120),
-        (-30,  120,  20,  180),
-        ( 20, -180,  50,  -90),
-        ( 20,  -90,  50,    0),
-        ( 20,    0,  50,   60),
-        ( 20,   60,  50,  120),
-        ( 20,  120,  50,  180),
-        ( 50, -180,  90,   0),
-        ( 50,    0,  90,  90),
-        ( 50,   90,  90, 180),
-    ]
-
     seen = set()
     stations = []
-
-    for (lat1, lon1, lat2, lon2) in tiles:
+    for (lat1, lon1, lat2, lon2) in TILES:
         url = (f"https://api.waqi.info/map/bounds/"
                f"?latlng={lat1},{lon1},{lat2},{lon2}&token={AQICN_TOKEN}")
         try:
@@ -64,29 +69,26 @@ def fetch_stations():
                     continue
         except Exception as e:
             print(f"Erreur tuile {lat1},{lon1}: {e}")
-
     print(f"Total stations récupérées : {len(stations)}")
     return stations
 
 def refresh_cache():
-    """Régénère le PNG IDW et le fichier stations en cache."""
     stations = fetch_stations()
     if not stations:
         return
-    # Sauvegarder les stations en JSON
     with open(os.path.join(CACHE_DIR, "stations.json"), "w") as f:
         json.dump({"stations": stations, "timestamp": time.time()}, f)
-    # Générer le PNG IDW
-    generate_idw_image(stations, os.path.join(CACHE_DIR, "idw.png"),
-                       os.path.join(CACHE_DIR, "bounds.json"))
+    generate_country_geojson(
+        stations,
+        os.path.join(CACHE_DIR, "countries.geojson")
+    )
 
 def auto_refresh():
-    """Thread de rafraîchissement automatique toutes les heures."""
     while True:
         try:
             refresh_cache()
         except Exception as e:
-            print(f"Erreur refresh: {e}")
+            print(f"Erreur auto_refresh: {e}")
         time.sleep(CACHE_DURATION)
 
 @app.route("/")
@@ -99,30 +101,20 @@ def api_stations():
     if os.path.exists(path):
         with open(path) as f:
             return jsonify(json.load(f))
-    # Pas de cache : fetch direct
     stations = fetch_stations()
     return jsonify({"stations": stations, "timestamp": time.time()})
 
-@app.route("/api/idw.png")
-def api_idw_png():
-    path = os.path.join(CACHE_DIR, "idw.png")
-    if not os.path.exists(path):
-        refresh_cache()
-    return send_file(path, mimetype="image/png")
-
-@app.route("/api/bounds")
-def api_bounds():
-    path = os.path.join(CACHE_DIR, "bounds.json")
+@app.route("/api/countries")
+def api_countries():
+    path = os.path.join(CACHE_DIR, "countries.geojson")
     if not os.path.exists(path):
         refresh_cache()
     with open(path) as f:
         return jsonify(json.load(f))
 
 if __name__ == "__main__":
-    # Premier chargement au démarrage
     os.makedirs(CACHE_DIR, exist_ok=True)
     refresh_cache()
-    # Thread de rafraîchissement
     t = threading.Thread(target=auto_refresh, daemon=True)
     t.start()
     app.run(host="0.0.0.0", port=5007, debug=False)
