@@ -1,3 +1,4 @@
 .env
 static/cache/*
 __pycache__/
+spatial/naturalearth_lowres.gpkg
