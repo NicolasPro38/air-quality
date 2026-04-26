@@ -114,6 +114,11 @@ def api_countries():
 
 _cache_initialized = False
 
+@app.route("/api/refresh")
+def api_refresh():
+    threading.Thread(target=refresh_cache, daemon=True).start()
+    return jsonify({"status": "refresh started"})
+
 @app.before_request
 def init_cache():
     global _cache_initialized
