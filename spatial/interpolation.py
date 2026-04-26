@@ -7,6 +7,8 @@ from scipy.interpolate import griddata
 from shapely.geometry import Point
 import warnings
 warnings.filterwarnings("ignore")
+import matplotlib
+matplotlib.use('Agg')  # backend non-interactif, pas de fenêtre GUI
 
 # Palette AQI standard
 AQI_COLORS = [
