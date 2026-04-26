@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qualité de l'Air — France</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v8.2.0/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@v8.2.0/dist/ol.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        #map { width: 100%; height: 100vh; }
+
+        .header {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        .header h1 { font-size: 20px; color: #333; }
+
+        .controls {
+            position: absolute;
+            top: 70px;
+            left: 10px;
+            background: white;
+            padding: 14px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            min-width: 200px;
+        }
+        .controls h3 { font-size: 13px; color: #888; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+            color: #333;
+        }
+        .toggle {
+            position: relative;
+            width: 36px;
+            height: 20px;
+        }
+        .toggle input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #ccc;
+            border-radius: 20px;
+            transition: 0.3s;
+        }
+        .slider:before {
+            content: "";
+            position: absolute;
+            width: 14px; height: 14px;
+            left: 3px; bottom: 3px;
+            background: white;
+            border-radius: 50%;
+            transition: 0.3s;
+        }
+        input:checked + .slider { background: #4CAF50; }
+        input:checked + .slider:before { transform: translateX(16px); }
+
+        .opacity-row {
+            margin: 10px 0 4px;
+            font-size: 13px;
+            color: #555;
+        }
+        #opacity-slider {
+            width: 100%;
+            margin-top: 4px;
+            accent-color: #4CAF50;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 30px;
+            right: 10px;
+            background: white;
+            padding: 14px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+        .legend h3 { font-size: 13px; color: #888; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .legend-bar {
+            width: 180px;
+            height: 14px;
+            border-radius: 4px;
+            background: linear-gradient(to right, #00E400, #FFFF00, #FF7E00, #FF0000, #8F3F97);
+            margin-bottom: 4px;
+        }
+        .legend-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #888;
+        }
+        .legend-items { margin-top: 10px; }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 13px;
+            color: #555;
+        }
+        .legend-dot {
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        .status {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #888;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+            z-index: 1000;
+        }
+
+        .popup {
+            position: absolute;
+            background: white;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            min-width: 220px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            display: none;
+            z-index: 2000;
+        }
+        .popup-close {
+            position: absolute;
+            top: 6px; right: 10px;
+            cursor: pointer;
+            color: #aaa;
+            font-size: 18px;
+        }
+        .popup-close:hover { color: #333; }
+        .popup h3 { font-size: 15px; color: #333; margin-bottom: 8px; padding-right: 20px; }
+        .popup p { font-size: 13px; color: #666; margin: 4px 0; }
+        .aqi-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 4px;
+            color: white;
+            font-weight: bold;
+            font-size: 13px;
+            margin-left: 6px;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        #loading {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            font-size: 15px;
+            color: #555;
+        }
+        .spinner {
+            width: 36px; height: 36px;
+            border: 3px solid #eee;
+            border-top-color: #4CAF50;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-bottom: 12px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div id="loading">
+    <div class="spinner"></div>
+    <span>Calcul de l'interpolation spatiale…</span>
+</div>
+
+<div class="header">
+    <h1>🌍 Qualité de l'Air — France</h1>
+</div>
+
+<div class="controls">
+    <h3>Couches</h3>
+    <div class="toggle-row">
+        <span>Interpolation IDW</span>
+        <label class="toggle">
+            <input type="checkbox" id="toggle-idw" checked>
+            <span class="slider"></span>
+        </label>
+    </div>
+    <div class="toggle-row">
+        <span>Stations</span>
+        <label class="toggle">
+            <input type="checkbox" id="toggle-stations" checked>
+            <span class="slider"></span>
+        </label>
+    </div>
+    <div class="opacity-row">
+        Opacité IDW : <span id="opacity-val">65%</span>
+        <input type="range" id="opacity-slider" min="10" max="100" value="65">
+    </div>
+</div>
+
+<div class="legend">
+    <h3>Indice AQI</h3>
+    <div class="legend-bar"></div>
+    <div class="legend-labels">
+        <span>0</span><span>100</span><span>200</span><span>300+</span>
+    </div>
+    <div class="legend-items">
+        <div class="legend-item"><span class="legend-dot" style="background:#00E400"></span>Bon (0–50)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#FFFF00; border:1px solid #ddd"></span>Modéré (51–100)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#FF7E00"></span>Mauvais GS (101–150)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#FF0000"></span>Mauvais (151–200)</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#8F3F97"></span>Très mauvais (201+)</div>
+    </div>
+</div>
+
+<div class="status" id="status">Chargement…</div>
+
+<div id="map"></div>
+
+<div class="popup" id="popup">
+    <span class="popup-close" id="popup-close">✖</span>
+    <div id="popup-content"></div>
+</div>
+
+<script>
+    function getAQIColor(aqi) {
+        if (aqi <= 50)  return '#00E400';
+        if (aqi <= 100) return '#FFFF00';
+        if (aqi <= 150) return '#FF7E00';
+        if (aqi <= 200) return '#FF0000';
+        return '#8F3F97';
+    }
+    function getAQILevel(aqi) {
+        if (aqi <= 50)  return 'Bon';
+        if (aqi <= 100) return 'Modéré';
+        if (aqi <= 150) return 'Mauvais pour groupes sensibles';
+        if (aqi <= 200) return 'Mauvais';
+        return 'Très mauvais';
+    }
+
+    // --- Carte de base ---
+    const map = new ol.Map({
+        target: 'map',
+        layers: [
+            new ol.layer.Tile({ source: new ol.source.OSM() })
+        ],
+        view: new ol.View({
+            center: ol.proj.fromLonLat([2.5, 46.5]),
+            zoom: 6
+        })
+    });
+
+    let idwLayer = null;
+    let stationsLayer = null;
+
+    // --- Chargement IDW + stations ---
+    async function loadLayers() {
+        try {
+            // 1. Récupérer les bounds
+            const boundsResp = await fetch('/api/bounds');
+            const bounds = await boundsResp.json();
+
+            // 2. Couche IDW (ImageStatic OpenLayers)
+            const extent = ol.proj.transformExtent(
+                [bounds.lon_min, bounds.lat_min, bounds.lon_max, bounds.lat_max],
+                'EPSG:4326', 'EPSG:3857'
+            );
+            idwLayer = new ol.layer.Image({
+                source: new ol.source.ImageStatic({
+                    url: '/api/idw.png',
+                    imageExtent: extent,
+                    projection: 'EPSG:3857'
+                }),
+                opacity: 0.65
+            });
+            map.addLayer(idwLayer);
+
+            // 3. Stations
+            const stationsResp = await fetch('/api/stations');
+            const data = await stationsResp.json();
+            const features = data.stations.map(s => {
+                const f = new ol.Feature({
+                    geometry: new ol.geom.Point(ol.proj.fromLonLat([s.lon, s.lat])),
+                    name: s.name,
+                    aqi: s.aqi
+                });
+                return f;
+            });
+
+            stationsLayer = new ol.layer.Vector({
+                source: new ol.source.Vector({ features }),
+                style: function(feature) {
+                    const aqi = feature.get('aqi');
+                    return new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: 6,
+                            fill: new ol.style.Fill({ color: getAQIColor(aqi) }),
+                            stroke: new ol.style.Stroke({ color: 'white', width: 1.5 })
+                        })
+                    });
+                }
+            });
+            map.addLayer(stationsLayer);
+
+            // Mise à jour statut
+            const date = new Date(data.timestamp * 1000);
+            document.getElementById('status').textContent =
+                `${data.stations.length} stations · Mis à jour ${date.toLocaleTimeString('fr-FR')}`;
+
+            document.getElementById('loading').style.display = 'none';
+
+        } catch(e) {
+            console.error(e);
+            document.getElementById('loading').textContent = 'Erreur de chargement.';
+        }
+    }
+
+    loadLayers();
+
+    // --- Toggles ---
+    document.getElementById('toggle-idw').addEventListener('change', function() {
+        if (idwLayer) idwLayer.setVisible(this.checked);
+    });
+    document.getElementById('toggle-stations').addEventListener('change', function() {
+        if (stationsLayer) stationsLayer.setVisible(this.checked);
+    });
+
+    // --- Opacité IDW ---
+    document.getElementById('opacity-slider').addEventListener('input', function() {
+        const val = parseInt(this.value);
+        document.getElementById('opacity-val').textContent = val + '%';
+        if (idwLayer) idwLayer.setOpacity(val / 100);
+    });
+
+    // --- Popup au clic sur station ---
+    const popup = document.getElementById('popup');
+    document.getElementById('popup-close').onclick = () => popup.style.display = 'none';
+
+    map.on('singleclick', function(evt) {
+        if (!stationsLayer) return;
+        const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
+        if (feature) {
+            const aqi = feature.get('aqi');
+            const name = feature.get('name');
+            const color = getAQIColor(aqi);
+            const level = getAQILevel(aqi);
+            document.getElementById('popup-content').innerHTML = `
+                <h3>📍 ${name}</h3>
+                <p><strong>AQI :</strong><span class="aqi-badge" style="background:${color}">${aqi}</span></p>
+                <p><strong>Niveau :</strong> ${level}</p>
+            `;
+            const px = map.getPixelFromCoordinate(evt.coordinate);
+            popup.style.left = (px[0] + 15) + 'px';
+            popup.style.top  = (px[1] - 40) + 'px';
+            popup.style.display = 'block';
+        } else {
+            popup.style.display = 'none';
+        }
+    });
+</script>
+</body>
+</html>
