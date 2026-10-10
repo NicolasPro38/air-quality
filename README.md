@@ -4,7 +4,7 @@ Carte mondiale interactive de la qualité de l'air, construite avec Flask, GeoPa
 
 ## Aperçu
 
-![Air Quality Map](https://cartonicolasrey.duckdns.org/air-quality/)
+![Air Quality Map](https://cartonicolasreyromano.fr/air-quality/)
 
 L'application récupère en temps réel les données de 4 600+ stations de mesure mondiales via l'API AQICN, puis effectue une **jointure spatiale GeoPandas** pour calculer l'AQI moyen par pays et générer une choroplèthe mondiale.
 
@@ -83,7 +83,7 @@ python3 app.py
 
 ## Démo
 
-🌐 [cartonicolasrey.duckdns.org/air-quality](https://cartonicolasrey.duckdns.org/air-quality/)
+🌐 [cartonicolasreyromano.fr/air-quality](https://cartonicolasreyromano.fr/air-quality/)
 
 ## Données
 
@@ -93,4 +93,4 @@ python3 app.py
 ## Auteur
 
 **Nicolas Rey Romano** — Géomaticien  
-[Portfolio](https://cartonicolasrey.duckdns.org/portfolio/) · [LinkedIn](https://www.linkedin.com/in/nicolas-rey-5898b3116/) · [GitHub](https://github.com/NicolasPro38)
+[Portfolio](https://cartonicolasreyromano.fr/portfolio/) · [LinkedIn](https://www.linkedin.com/in/nicolas-rey-5898b3116/) · [GitHub](https://github.com/NicolasPro38)
